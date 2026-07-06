@@ -3,14 +3,16 @@
 # SubSync Tool — Script d'installation
 #
 # Usage :
-#   ./install.sh                           # Installation standard (~/.subsync-tool)
+#   ./install.sh                           # Installation dans le dossier du projet
 #   SUBSYNC_HOME=/opt/subsync ./install.sh # Dossier personnalisé
 #   ./install.sh --no-alias                # Sans ajouter les alias shell
 #=============================================================================
 
 set -euo pipefail
 
-SUBSYNC_HOME="${SUBSYNC_HOME:-$HOME/.subsync-tool}"
+# Auto-détection : dossier contenant ce script (= racine du projet cloné)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SUBSYNC_HOME="${SUBSYNC_HOME:-$SCRIPT_DIR}"
 ALASS_VERSION="2.0.2"
 ALASS_URL="https://github.com/kaegi/alass/releases/download/v${ALASS_VERSION}/alass-linux64"
 
@@ -60,7 +62,7 @@ if [[ "$NO_ALIAS" == false ]]; then
     step "Ajout des alias shell"
     declare -A ALIASES=(
         ["subsync"]="$SUBSYNC_HOME/subsync.sh"
-        ["subsync-web"]="cd $SUBSYNC_HOME/web && python3 server.py"
+        ["subsync-web"]="SUBSYNC_HOME=$SUBSYNC_HOME cd $SUBSYNC_HOME/web && python3 server.py"
     )
     for rcfile in "$HOME/.bashrc" "$HOME/.zshrc"; do
         if [[ -f "$rcfile" ]]; then
