@@ -1027,6 +1027,21 @@ body {
 .setup-check.fail .check-icon { color: var(--error); }
 .setup-check.fail .check-label { color: var(--error); }
 
+.setup-check .check-fix {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+
+.setup-check .check-fix code {
+  background: var(--bg-base);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  user-select: all;
+}
+
 .setup-actions {
   display: flex;
   gap: 10px;

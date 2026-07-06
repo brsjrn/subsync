@@ -1328,60 +1328,32 @@ function renderSetupBanner() {
   }
 
   const checks = status.checks;
-  const failCount = Object.values(checks).filter(c => !c.ok).length;
+  const failed = Object.entries(checks).filter(([, c]) => !c.ok);
 
   banner.innerHTML = `
     <h3>⚙️ Configuration requise</h3>
-    <p>${failCount} élément(s) à installer ou configurer avant de pouvoir utiliser SubSync.</p>
+    <p>${failed.length} élément(s) à installer ou configurer avant de pouvoir utiliser SubSync.</p>
     <div class="setup-checks">
-      ${Object.entries(checks).map(([key, c]) => `
+      ${Object.entries(checks).map(([, c]) => `
         <div class="setup-check ${c.ok ? 'ok' : 'fail'}">
           <span class="check-icon">${c.ok ? '✅' : '❌'}</span>
           <span class="check-label">${c.label}</span>
           ${c.detail ? `<span class="check-detail">— ${c.detail}</span>` : ''}
+          ${!c.ok ? `
+            <span class="check-fix">
+              ${c.action === 'page'
+                ? `<button class="btn btn-sm btn-primary" onclick="${c.fix === 'config' ? "navigate('config')" : ''}">${c.fix_label}</button>`
+                : `<code>${escapeHtml(c.fix)}</code>`
+              }
+            </span>
+          ` : ''}
         </div>
       `).join('')}
     </div>
     <div class="setup-actions">
-      ${status.install_available ? `
-        <button class="btn btn-primary" id="btn-setup-install" onclick="runSetupInstall()">
-          🔧 Lancer l'installation automatique
-        </button>
-      ` : `
-        <p class="muted">Le script install.sh est introuvable. Exécute l'installation manuellement :</p>
-      `}
       <button class="btn btn-ghost" onclick="checkSetup()">🔄 Vérifier à nouveau</button>
     </div>
   `;
-}
-
-async function runSetupInstall() {
-  const btn = $('#btn-setup-install');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Installation en cours...'; }
-
-  // Ouvrir la console si elle est fermée
-  if ($('#console').classList.contains('console-collapsed')) {
-    toggleConsole();
-  }
-
-  try {
-    const resp = await fetch('/api/setup/install', { method: 'POST' });
-    const data = await resp.json();
-    if (!resp.ok) {
-      console.error('Erreur installation :', data.error);
-      if (btn) { btn.disabled = false; btn.textContent = '🔧 Lancer l\'installation automatique'; }
-      return;
-    }
-
-    // Streamer les logs
-    STATE.currentJobId = data.job_id;
-    STATE.jobRunning = true;
-    updateJobIndicator();
-    openSSE(data.job_id);
-  } catch (err) {
-    console.error('Erreur réseau :', err);
-    if (btn) { btn.disabled = false; btn.textContent = '🔧 Lancer l\'installation automatique'; }
-  }
 }
 
 // Start

@@ -331,33 +331,26 @@ Invalide le cache et retourne l'arbre à jour.
 
 ### 5.16 GET /api/setup/check
 
-Vérifie que tous les prérequis sont satisfaits.
+Vérifie que tous les prérequis sont satisfaits. Appelé au chargement de la page d'accueil.
 
 - **Réponse** :
 ```json
 {
   "ready": false,
-  "install_available": true,
   "checks": {
-    "alass":       {"ok": true,  "label": "alass (synchro audio)", "detail": "", "fix": "..."},
-    "ffmpeg":      {"ok": true,  "label": "ffmpeg / ffprobe",      "detail": "", "fix": "sudo apt install ffmpeg"},
-    "subliminal":  {"ok": true,  "label": "subliminal",             "detail": "", "fix": "pip install subliminal"},
-    "config":      {"ok": false, "label": "Configuration",          "detail": "Chemins par défaut", "fix": "..."},
-    "films_path":  {"ok": false, "label": "Dossier Films",          "detail": "Introuvable", "fix": "..."},
-    "series_path": {"ok": false, "label": "Dossier Séries",         "detail": "Introuvable", "fix": "..."}
+    "alass":       {"ok": true,  "label": "alass (synchro audio)", "action": "terminal", "fix": "cd ... && ./install.sh"},
+    "ffmpeg":      {"ok": true,  "label": "ffmpeg / ffprobe",      "action": "terminal", "fix": "sudo apt install ffmpeg"},
+    "subliminal":  {"ok": true,  "label": "subliminal",             "action": "terminal", "fix": "pip install subliminal"},
+    "config":      {"ok": false, "label": "Configuration",          "action": "page",     "fix": "config"},
+    "films_path":  {"ok": false, "label": "Dossier Films",          "action": "page",     "fix": "config"},
+    "series_path": {"ok": false, "label": "Dossier Séries",         "action": "page",     "fix": "config"}
   }
 }
 ```
 - `ready` : `true` si tous les checks sont OK
-- `install_available` : `true` si `install.sh` existe
-
-### 5.17 POST /api/setup/install
-
-Lance le script `install.sh` via le système de jobs (SSE).
-
-- **Réponse** : `{ "job_id": "abc12345", "command": "...", "status": "running" }`
-- **Erreur** : `400` si `install.sh` introuvable, `409` si un job est déjà en cours
-- Les logs s'affichent en direct via `/api/stream/<job_id>`
+- Chaque check a un champ `action` :
+  - `"terminal"` → commande affichée à copier-coller dans le terminal
+  - `"page"` → bouton renvoyant vers la page Configuration
 
 ---
 

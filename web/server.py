@@ -152,11 +152,10 @@ class JobManager:
                 return None
             return dict(self._job)
 
-    def start(self, path: str | list[str], mode: str, script: str = None) -> str:
+    def start(self, path: str | list[str], mode: str) -> str:
         """
-        Lance une commande.
+        Lance une commande subsync.
         Accepte un chemin unique (str) ou une liste de chemins (list[str]).
-        Par défaut, lance subsync.sh. Si 'script' est fourni, exécute ce script à la place.
         Retourne le job_id.
         Lève RuntimeError si un job est déjà en cours.
         """
@@ -169,32 +168,25 @@ class JobManager:
                 raise RuntimeError('Un job est déjà en cours')
 
             job_id = str(uuid.uuid4())[:8]
+            script = os.path.join(SUBSYNC_HOME, 'subsync.sh')
 
-            # Déterminer le script à exécuter
-            if script:
-                cmd = [script]
-                # Passer les chemins en arguments
-                if isinstance(path, str):
-                    cmd.append(path)
-                else:
-                    cmd.extend(path)
+            # Normaliser en liste
+            if isinstance(path, str):
+                paths = [path]
             else:
-                script = os.path.join(SUBSYNC_HOME, 'subsync.sh')
-                if isinstance(path, str):
-                    paths = [path]
-                else:
-                    paths = list(path)
-                cmd = [script]
-                if mode == 'force':
-                    cmd.append('--force')
-                elif mode == 'dry-run':
-                    cmd.append('--dry-run')
-                cmd.extend(paths)
+                paths = list(path)
+
+            cmd = [script]
+            if mode == 'force':
+                cmd.append('--force')
+            elif mode == 'dry-run':
+                cmd.append('--dry-run')
+            cmd.extend(paths)
 
             self._job = {
                 'job_id': job_id,
                 'command': ' '.join(cmd),
-                'path': path if isinstance(path, str) else f'{len(path)} fichiers',
+                'path': paths[0] if len(paths) == 1 else f'{len(paths)} fichiers',
                 'mode': mode,
                 'started_at': time.strftime('%H:%M:%S'),
                 'status': 'running',
@@ -615,7 +607,9 @@ def api_setup_check():
         'ok': os.path.isfile(alass_path) and os.access(alass_path, os.X_OK),
         'label': 'alass (synchro audio)',
         'detail': '',
-        'fix': f'Téléchargé automatiquement par l\'installation.'
+        'action': 'terminal',
+        'fix': f'cd {SUBSYNC_HOME} && ./install.sh',
+        'fix_label': 'Commande à exécuter dans le terminal',
     }
     if not checks['alass']['ok']:
         checks['alass']['detail'] = f'Binaire introuvable : {alass_path}'
@@ -623,36 +617,32 @@ def api_setup_check():
     # --- ffmpeg ---
     try:
         result = subprocess.run(['ffprobe', '-version'], capture_output=True, timeout=5)
-        checks['ffmpeg'] = {
-            'ok': result.returncode == 0,
-            'label': 'ffmpeg / ffprobe',
-            'detail': '',
-            'fix': 'sudo apt install ffmpeg'
-        }
+        ok = result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        checks['ffmpeg'] = {
-            'ok': False,
-            'label': 'ffmpeg / ffprobe',
-            'detail': 'Commande introuvable.',
-            'fix': 'sudo apt install ffmpeg'
-        }
+        ok = False
+    checks['ffmpeg'] = {
+        'ok': ok,
+        'label': 'ffmpeg / ffprobe',
+        'detail': '' if ok else 'Commande introuvable.',
+        'action': 'terminal',
+        'fix': 'sudo apt install ffmpeg',
+        'fix_label': 'Commande à exécuter dans le terminal',
+    }
 
     # --- subliminal ---
     try:
         import subliminal
-        checks['subliminal'] = {
-            'ok': True,
-            'label': 'subliminal (téléchargement)',
-            'detail': '',
-            'fix': 'pip install subliminal'
-        }
+        ok_subliminal = True
     except ImportError:
-        checks['subliminal'] = {
-            'ok': False,
-            'label': 'subliminal (téléchargement)',
-            'detail': 'Module Python introuvable.',
-            'fix': 'pip install subliminal'
-        }
+        ok_subliminal = False
+    checks['subliminal'] = {
+        'ok': ok_subliminal,
+        'label': 'subliminal (téléchargement)',
+        'detail': '' if ok_subliminal else 'Module Python introuvable.',
+        'action': 'terminal',
+        'fix': 'pip install subliminal',
+        'fix_label': 'Commande à exécuter dans le terminal',
+    }
 
     # --- config ---
     films_path = config.get('films_path', '')
@@ -665,8 +655,10 @@ def api_setup_check():
     checks['config'] = {
         'ok': config_ok,
         'label': 'Configuration des dossiers',
-        'detail': '' if config_ok else 'Les chemins Films/Séries utilisent les valeurs par défaut.',
-        'fix': 'Configurer dans la page ⚙️ Configuration'
+        'detail': '' if config_ok else 'Les chemins Films/Séries n\'ont pas encore été configurés.',
+        'action': 'page',
+        'fix': 'config',
+        'fix_label': 'Configurer les dossiers',
     }
 
     # --- media folders ---
@@ -678,7 +670,9 @@ def api_setup_check():
             'ok': ok,
             'label': label,
             'detail': '' if ok else f'Dossier introuvable : {path}',
-            'fix': f'Vérifier le chemin dans ⚙️ Configuration'
+            'action': 'page',
+            'fix': 'config',
+            'fix_label': 'Vérifier les dossiers',
         }
 
     all_ok = all(c['ok'] for c in checks.values())
@@ -686,27 +680,7 @@ def api_setup_check():
     return jsonify({
         'ready': all_ok,
         'checks': checks,
-        'install_available': os.path.isfile(os.path.join(SUBSYNC_HOME, 'install.sh')),
     })
-
-
-@app.route('/api/setup/install', methods=['POST'])
-def api_setup_install():
-    """Lance le script d'installation (via le système de jobs)."""
-    install_script = os.path.join(SUBSYNC_HOME, 'install.sh')
-    if not os.path.isfile(install_script):
-        return jsonify({'error': 'Script install.sh introuvable'}), 400
-
-    try:
-        # Passer le script comme script personnalisé, et le HOME comme path
-        job_id = job_manager.start(SUBSYNC_HOME, 'install', script=install_script)
-        job = job_manager.get_active_job()
-        scanner.clear_cache()
-        return jsonify(job), 200
-    except RuntimeError as e:
-        return jsonify({'error': str(e)}), 409
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
