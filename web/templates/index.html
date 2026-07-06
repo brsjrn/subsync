@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubSync Web</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <span class="logo">🎬</span>
+    <span class="brand">SubSync Web</span>
+  </div>
+
+  <nav id="sidebar-nav">
+    <a href="#" class="nav-item active" data-view="home">
+      <span class="nav-icon">🏠</span> Accueil
+    </a>
+    <a href="#" class="nav-item" data-view="films">
+      <span class="nav-icon">🎥</span> Films
+      <span class="nav-badge" id="badge-films">--</span>
+    </a>
+
+    <a href="#" class="nav-item" data-view="series">
+      <span class="nav-icon">📺</span> Séries
+      <span class="nav-badge" id="badge-series">--</span>
+    </a>
+    <div id="sidebar-series" class="nav-submenu"></div>
+
+    <div class="nav-spacer"></div>
+
+    <a href="#" class="nav-item" data-view="validated">
+      <span class="nav-icon">✓</span> Whitelist
+      <span class="nav-badge" id="badge-validated">--</span>
+    </a>
+    <a href="#" class="nav-item" data-view="warnings">
+      <span class="nav-icon">⚠️</span> Warnings
+      <span class="nav-badge" id="badge-warnings">--</span>
+    </a>
+
+    <div class="nav-spacer"></div>
+
+    <a href="#" class="nav-item" data-view="config">
+      <span class="nav-icon">⚙️</span> Configuration
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <button id="btn-refresh" title="Rafraîchir les statuts">🔄</button>
+    <span id="sidebar-status" class="status-dot idle"></span>
+  </div>
+</aside>
+
+<!-- Main -->
+<main id="main">
+  <!-- Top Bar -->
+  <header id="topbar">
+    <div id="breadcrumb">
+      <span class="crumb" data-view="home">Accueil</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" id="btn-scan" disabled>
+        🔍 Scanner
+      </button>
+      <button class="btn btn-warning" id="btn-force" disabled>
+        ⚡ Force
+      </button>
+      <button class="btn btn-ghost" id="btn-dryrun" disabled>
+        👁️ Dry-Run
+      </button>
+      <button class="btn btn-ghost" id="btn-help" title="Aide (touche ?)">
+        ❓ Aide
+      </button>
+      <span id="job-indicator" class="job-idle">○ Inactif</span>
+    </div>
+  </header>
+
+  <!-- Content Area -->
+  <section id="content">
+    <!-- Vue Accueil -->
+    <div id="view-home" class="view active">
+      <div class="stats-grid">
+        <div class="stat-card" id="stat-card-films">
+          <div class="stat-icon">🎥</div>
+          <div class="stat-info">
+            <div class="stat-label">Films</div>
+            <div class="stat-numbers" id="stat-numbers-films"></div>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-card-series">
+          <div class="stat-icon">📺</div>
+          <div class="stat-info">
+            <div class="stat-label">Séries</div>
+            <div class="stat-numbers" id="stat-numbers-series"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-cards">
+        <!-- Sous-titres manquants -->
+        <div class="card home-card">
+          <h3>❌ Sous-titres manquants</h3>
+          <p class="muted" id="missing-count-label">Vidéos sans aucun sous-titre français.</p>
+          <div id="missing-list" class="missing-list"></div>
+        </div>
+
+        <!-- Fichiers à scanner -->
+        <div class="card home-card">
+          <h3>🔍 Fichiers à scanner</h3>
+          <p class="muted">Sélectionne un ou plusieurs fichiers et lance le scan.</p>
+          <div id="unscanned-list" class="unscanned-list"></div>
+          <div class="unscanned-actions" id="unscanned-actions" style="display:none">
+            <span id="unscanned-count"></span>
+            <button class="btn btn-primary" id="btn-scan-selected">
+              🔍 Scanner la sélection
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="home-recents">
+        <h3>Derniers avertissements</h3>
+        <div id="recent-warnings">Chargement...</div>
+      </div>
+    </div>
+
+    <!-- Vue Films / Saison (tableau) -->
+    <div id="view-table" class="view">
+      <div class="table-toolbar">
+        <div class="filter-group" id="filter-group">
+          <span class="filter-chip active" data-filter="ok">✅ OK</span>
+          <span class="filter-chip active" data-filter="warning">⚠️ Warning</span>
+          <span class="filter-chip active" data-filter="missing">❌ Manquant</span>
+          <span class="filter-chip active" data-filter="validated">✓ Validé</span>
+          <span class="filter-chip active" data-filter="ignored">🇫🇷 VF</span>
+        </div>
+        <div class="table-actions">
+          <span id="selection-count"></span>
+          <button class="btn btn-sm btn-accent" id="btn-validate-selection" style="display:none">
+            ✓ Valider la sélection
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="file-table">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="check-all" title="Tout sélectionner"></th>
+              <th class="col-name">Fichier</th>
+              <th class="col-status">Statut</th>
+              <th class="col-duration">Durée</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="5" class="empty-msg">Aucun fichier à afficher</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Vue Série (saisons) -->
+    <div id="view-series" class="view">
+      <div class="stats-grid stats-sm" id="series-stats"></div>
+      <div class="seasons-grid" id="seasons-grid"></div>
+    </div>
+
+    <!-- Vue Séries (liste) -->
+    <div id="view-series-list" class="view">
+      <div class="stats-grid stats-sm" id="all-series-stats"></div>
+      <div class="card">
+        <h3>Toutes les séries</h3>
+        <div id="all-series-list"></div>
+      </div>
+    </div>
+
+    <!-- Vue Whitelist -->
+    <div id="view-validated" class="view">
+      <div class="card">
+        <h3>Sous-titres validés manuellement</h3>
+        <p class="muted">Ces fichiers ne seront plus jamais signalés comme désynchronisés.</p>
+        <div id="validated-list"></div>
+      </div>
+    </div>
+
+    <!-- Vue Warnings -->
+    <div id="view-warnings" class="view">
+      <div class="card">
+        <h3>Avertissements de synchronisation</h3>
+        <div id="warnings-list"></div>
+      </div>
+    </div>
+
+    <!-- Vue Configuration -->
+    <div id="view-config" class="view">
+      <div class="card">
+        <h3>⚙️ Configuration des dossiers</h3>
+        <p class="muted">Définis les dossiers contenant tes films et tes séries.</p>
+
+        <div class="config-form">
+          <div class="config-field">
+            <label for="cfg-films-path">🎥 Dossier des films</label>
+            <input type="text" id="cfg-films-path" placeholder="/chemin/vers/films">
+            <span class="config-hint">Extensions : .mp4, .mkv, .avi, .mov, .webm</span>
+          </div>
+
+          <div class="config-field">
+            <label for="cfg-series-path">📺 Dossier des séries</label>
+            <input type="text" id="cfg-series-path" placeholder="/chemin/vers/séries">
+            <span class="config-hint">Structure attendue : Série/Saison/Épisodes</span>
+          </div>
+
+          <div class="config-field">
+            <label for="cfg-apikey">🔑 Clé API OpenSubtitles</label>
+            <input type="password" id="cfg-apikey" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+            <span class="config-hint">Utilisée par <code>subliminal</code> pour télécharger les sous-titres. <a href="https://www.opensubtitles.com/fr/profiles/purchases" target="_blank">Obtenir une clé API</a></span>
+          </div>
+
+          <div class="config-actions">
+            <button class="btn btn-primary" id="btn-save-config">💾 Sauvegarder</button>
+            <span id="config-status"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vue Aide -->
+    <div id="view-help" class="view">
+      <div class="card">
+        <h3>❓ Aide — Fonctionnement de SubSync</h3>
+        <p class="muted">Clique sur le bouton <strong>❓ Aide</strong> dans la barre du haut pour ouvrir l'aide sans quitter la page en cours.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Console -->
+  <section id="console" class="console-collapsed">
+    <div class="console-header">
+      <span class="console-title">💻 Console</span>
+      <span id="console-status"></span>
+      <div class="console-actions">
+        <button id="btn-stop-job" class="btn btn-sm btn-danger" style="display:none">⏹ Stop</button>
+        <button id="btn-clear-console" class="btn btn-sm btn-ghost">🗑️ Clear</button>
+        <button id="btn-toggle-console" class="btn btn-sm btn-ghost">▸</button>
+      </div>
+    </div>
+    <div class="console-body" id="console-body">
+      <div class="console-line muted">Prêt. Lancez un scan pour voir les logs.</div>
+    </div>
+  </section>
+</main>
+
+<!-- Overlay du panneau d'aide -->
+<div id="help-overlay" class="help-overlay"></div>
+
+<!-- Panneau latéral d'aide -->
+<aside id="help-panel" class="help-panel">
+  <div class="help-panel-header">
+    <h3>❓ Aide — SubSync</h3>
+    <button id="btn-close-help" class="btn-icon" title="Fermer">✕</button>
+  </div>
+  <div class="help-panel-body">
+    <div class="help-section">
+      <h4>🔍 Pipeline de traitement</h4>
+      <p>Pour chaque vidéo, SubSync suit 3 étapes :</p>
+      <ol>
+        <li><strong>Acquisition</strong> — si un sous-titre <code>.fr.srt</code> existe déjà, il est utilisé. Sinon, les sous-titres embarqués dans le fichier vidéo sont extraits (MKV uniquement). En dernier recours, un sous-titre est téléchargé depuis internet (OpenSubtitles.com).</li>
+        <li><strong>Synchronisation</strong> — le sous-titre est passé dans <em>alass</em>, un moteur qui aligne automatiquement les dialogues avec l'audio de la vidéo. Il corrige aussi les différences de framerate (23.976, 24, 25 FPS…).</li>
+        <li><strong>Vérification</strong> — l'écart entre le dernier sous-titre et la fin de la vidéo est mesuré. S'il dépasse 10 secondes, un avertissement est ajouté et l'épisode est signalé.</li>
+      </ol>
+    </div>
+
+    <div class="help-section">
+      <h4>📊 Statuts des sous-titres</h4>
+      <table class="help-table">
+        <tr><td><span class="badge badge-ok">✅ OK</span></td><td>Sous-titre présent et bien synchronisé</td></tr>
+        <tr><td><span class="badge badge-warning">⚠️ Warning</span></td><td>Sous-titre présent mais écart détecté avec la vidéo</td></tr>
+        <tr><td><span class="badge badge-missing">❌ Manquant</span></td><td>Aucun sous-titre trouvé</td></tr>
+        <tr><td><span class="badge badge-validated">✓ Validé</span></td><td>Sous-titre vérifié manuellement et marqué comme correct</td></tr>
+        <tr><td><span class="badge badge-ignored">🇫🇷 VF</span></td><td>Vidéo marquée comme n'ayant pas besoin de sous-titres</td></tr>
+      </table>
+    </div>
+
+    <div class="help-section">
+      <h4>🛠️ Actions disponibles</h4>
+      <table class="help-table">
+        <tr><td><strong>🔍 Scanner</strong></td><td>Lance le pipeline complet : télécharge/extrait les sous-titres manquants et les synchronise. Les fichiers qui ont déjà un <code>.fr.srt</code> sont simplement resynchronisés (pas retéléchargés).</td></tr>
+        <tr><td><strong>⚡ Force</strong></td><td>Comme Scanner, mais <em>retélécharge</em> tous les sous-titres, même ceux qui existent déjà.</td></tr>
+        <tr><td><strong>👁️ Dry-Run</strong></td><td>Simule l'exécution sans rien modifier. Affiche ce qui <em>serait</em> fait.</td></tr>
+        <tr><td><strong>✓ Valider</strong></td><td>Marque un sous-titre comme vérifié manuellement. Il ne sera plus jamais signalé.</td></tr>
+        <tr><td><strong>🇫🇷 Ignorer</strong></td><td>Marque une vidéo comme n'ayant pas besoin de sous-titres (VF, muet…).</td></tr>
+      </table>
+    </div>
+
+    <div class="help-section">
+      <h4>🧭 Navigation</h4>
+      <ul>
+        <li><strong>Accueil</strong> — vue d'ensemble avec statistiques globales</li>
+        <li><strong>Films</strong> — tableau de tous les films, filtrable par statut</li>
+        <li><strong>Séries</strong> — liste des séries, puis navigation Série → Saison → Épisodes</li>
+        <li><strong>Whitelist</strong> — liste des sous-titres que tu as validés manuellement</li>
+        <li><strong>Warnings</strong> — liste de tous les avertissements de synchronisation</li>
+      </ul>
+      <p class="muted">Le scope des actions (Scanner, Force, Dry-Run) dépend de la vue dans laquelle tu te trouves.</p>
+    </div>
+
+    <div class="help-section">
+      <h4>⚠️ Comprendre les avertissements</h4>
+      <p>Un avertissement est généré quand le dernier sous-titre se termine plus de 10 secondes avant (ou après) la fin de la vidéo. Causes possibles :</p>
+      <ul>
+        <li><strong>Version PAL vs NTSC</strong> — la vidéo est en 25fps mais le sous-titre a été créé pour une version 23.976fps (ou inversement).</li>
+        <li><strong>Sous-titre d'une autre version</strong> — le .srt correspond à un montage différent (version longue, director's cut…).</li>
+        <li><strong>Long générique de fin</strong> — le film a un long générique sans dialogues. L'écart est normal, tu peux valider manuellement.</li>
+        <li><strong>Série quasi sans dialogues</strong> — ex: Primal. Peu de texte à analyser pour alass.</li>
+      </ul>
+      <p>👉 Si après vérification le sous-titre est correct, utilise <strong>✓ Valider</strong>. Il sera ignoré lors des prochains scans.</p>
+    </div>
+
+    <div class="help-section">
+      <h4>⌨️ Raccourcis clavier</h4>
+      <table class="help-table">
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Entrée</kbd></td><td>Lancer le scan sur la vue courante</td></tr>
+        <tr><td><kbd>Échap</kbd></td><td>Fermer l'aide / Désélectionner les fichiers</td></tr>
+      </table>
+    </div>
+  </div>
+</aside>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

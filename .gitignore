@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+venv/
+.env
+
+# Configuration utilisateur
+web/config.json
+validated-subs.txt
+no-sub-needed.txt
+
+# Fichiers générés
+subsync-warnings.txt
+
+# Binaires externes
+alass
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
