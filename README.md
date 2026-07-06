@@ -58,6 +58,7 @@ subsync-web --debug          # Mode debug Flask
 - 💻 Console avec logs en direct (SSE)
 - ⚙️ Page de configuration (dossiers + clé API OpenSubtitles)
 - ❓ Panneau d'aide latéral (touche `?`)
+- 🔧 Assistant d'installation automatique sur la page d'accueil
 
 ---
 

@@ -329,6 +329,36 @@ Invalide le cache et retourne l'arbre à jour.
 
 - **Réponse** : `MediaTree` (identique à `/api/tree`)
 
+### 5.16 GET /api/setup/check
+
+Vérifie que tous les prérequis sont satisfaits.
+
+- **Réponse** :
+```json
+{
+  "ready": false,
+  "install_available": true,
+  "checks": {
+    "alass":       {"ok": true,  "label": "alass (synchro audio)", "detail": "", "fix": "..."},
+    "ffmpeg":      {"ok": true,  "label": "ffmpeg / ffprobe",      "detail": "", "fix": "sudo apt install ffmpeg"},
+    "subliminal":  {"ok": true,  "label": "subliminal",             "detail": "", "fix": "pip install subliminal"},
+    "config":      {"ok": false, "label": "Configuration",          "detail": "Chemins par défaut", "fix": "..."},
+    "films_path":  {"ok": false, "label": "Dossier Films",          "detail": "Introuvable", "fix": "..."},
+    "series_path": {"ok": false, "label": "Dossier Séries",         "detail": "Introuvable", "fix": "..."}
+  }
+}
+```
+- `ready` : `true` si tous les checks sont OK
+- `install_available` : `true` si `install.sh` existe
+
+### 5.17 POST /api/setup/install
+
+Lance le script `install.sh` via le système de jobs (SSE).
+
+- **Réponse** : `{ "job_id": "abc12345", "command": "...", "status": "running" }`
+- **Erreur** : `400` si `install.sh` introuvable, `409` si un job est déjà en cours
+- Les logs s'affichent en direct via `/api/stream/<job_id>`
+
 ---
 
 ## 6 — Spécifications UI/UX
